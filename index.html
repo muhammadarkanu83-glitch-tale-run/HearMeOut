@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HearMeOut — Web Pemutar Musik</title>
+<!-- LIBRARY SUPABASE -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* =========================================================
    1. CSS VARIABLES
@@ -29,9 +31,6 @@
   --sidebar-w: 220px;
 }
 
-/* =========================================================
-   2. RESET & BASE
-   ========================================================= */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; }
 body {
@@ -53,9 +52,6 @@ input { font: inherit; }
 ::-webkit-scrollbar-thumb { background: var(--surface-hover); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
 
-/* =========================================================
-   3. LAYOUT GRID
-   ========================================================= */
 .app {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
@@ -67,9 +63,6 @@ input { font: inherit; }
 .main { grid-area: main; }
 .player { grid-area: player; }
 
-/* =========================================================
-   4. SIDEBAR
-   ========================================================= */
 .sidebar {
   background: var(--bg-2);
   border-right: 1px solid var(--border);
@@ -126,9 +119,6 @@ input { font: inherit; }
 .toggle-btn:hover { background: var(--surface-hover); }
 .toggle-btn.active { color: var(--accent); background: var(--surface); border-color: var(--accent); }
 
-/* =========================================================
-   5. MAIN CONTENT
-   ========================================================= */
 .main {
   overflow: hidden; display: flex; flex-direction: column;
   padding: 20px 24px;
@@ -309,9 +299,6 @@ input { font: inherit; }
 .song-item:hover .song-delete { opacity: 1; }
 .song-delete:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
 
-/* =========================================================
-   6. PLAYER BAR
-   ========================================================= */
 .player {
   background: rgba(18,18,26,0.95);
   backdrop-filter: blur(20px);
@@ -402,9 +389,6 @@ input { font: inherit; }
   background: white; cursor: pointer; border: none;
 }
 
-/* =========================================================
-   7. TOAST
-   ========================================================= */
 .toast-container {
   position: fixed; top: 20px; right: 20px;
   display: flex; flex-direction: column; gap: 8px;
@@ -425,9 +409,6 @@ input { font: inherit; }
 @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
 
-/* =========================================================
-   8. MODAL
-   ========================================================= */
 .modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.7); display: none;
@@ -464,9 +445,6 @@ input { font: inherit; }
 .modal-btn.secondary { color: var(--text-dim); }
 .modal-btn.secondary:hover { color: var(--text); }
 
-/* =========================================================
-   9. RESPONSIVE
-   ========================================================= */
 @media (max-width: 768px) {
   .app {
     grid-template-columns: 1fr;
@@ -530,7 +508,6 @@ input { font: inherit; }
 
 <div class="app">
 
-  <!-- ============ SIDEBAR ============ -->
   <aside class="sidebar" aria-label="Navigasi utama">
     <div class="logo">
       <div class="logo-icon">♪</div>
@@ -566,7 +543,6 @@ input { font: inherit; }
     </div>
   </aside>
 
-  <!-- ============ MAIN ============ -->
   <main class="main">
     <div class="main-scroll">
 
@@ -610,7 +586,7 @@ input { font: inherit; }
           <div class="playlist-empty">
             <div class="playlist-empty-icon">🎵</div>
             <h3>Playlist kosong</h3>
-            <p>Klik "Upload" untuk menambah lagu dari perangkat</p>
+            <p>Klik "Upload" atau "Tambah URL" untuk menambah lagu</p>
           </div>
         </div>
       </div>
@@ -618,7 +594,6 @@ input { font: inherit; }
     </div>
   </main>
 
-  <!-- ============ PLAYER BAR ============ -->
   <footer class="player">
     <div class="player-song">
       <div class="player-cover">
@@ -714,9 +689,15 @@ input { font: inherit; }
 (() => {
   'use strict';
 
-  /* ----------------------------------------------------------
-     STATE
-     ---------------------------------------------------------- */
+  // ==========================================
+  // ISI DENGAN URL DAN KEY DARI SUPABASE KAMU
+  // ==========================================
+  const SUPABASE_URL = 'https://izesffqwlhupujwthbua.supabase.co';
+  const SUPABASE_ANON_KEY = sb_publishable_J56orKubtN8-iXaPOYwXmA_1Cwojer4;
+  
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // ==========================================
+
   const state = {
     playlist: [],
     currentIndex: -1,
@@ -726,60 +707,30 @@ input { font: inherit; }
     volume: 0.7,
     muted: false,
     filter: '',
-    lyrics: {},
+    lyrics: {}, // Lirik tetap disimpan di memori lokal sementara
     currentLyricIndex: -1,
     songIdCounter: 0,
   };
 
-  /* ----------------------------------------------------------
-     ELEMENTS
-     ---------------------------------------------------------- */
   const $ = (id) => document.getElementById(id);
   const els = {
-    audio: $('audioPlayer'),
-    fileInput: $('fileInput'),
-    lrcInput: $('lrcInput'),
-    playlist: $('playlist'),
-    playlistCount: $('playlistCount'),
-    searchInput: $('searchInput'),
-    coverWrapper: $('coverWrapper'),
-    coverDisc: $('coverDisc'),
-    coverImg: $('coverImg'),
-    nowLabel: $('nowLabel'),
-    nowTitle: $('nowTitle'),
-    nowArtist: $('nowArtist'),
-    lyricsContainer: $('lyricsContainer'),
-    playerCover: $('playerCover'),
-    playerSongTitle: $('playerSongTitle'),
-    playerSongArtist: $('playerSongArtist'),
-    btnPlay: $('btnPlay'),
-    btnPrev: $('btnPrev'),
-    btnNext: $('btnNext'),
-    btnShuffle: $('btnShuffle'),
-    btnRepeat: $('btnRepeat'),
-    btnShuffleBottom: $('btnShuffleBottom'),
-    btnRepeatBottom: $('btnRepeatBottom'),
-    btnMute: $('btnMute'),
-    btnUpload: $('btnUpload'),
-    btnAddUrl: $('btnAddUrl'),
-    btnLoadLyrics: $('btnLoadLyrics'),
-    progressBar: $('progressBar'),
-    progressFill: $('progressFill'),
-    currentTime: $('currentTime'),
-    totalTime: $('totalTime'),
-    volumeSlider: $('volumeSlider'),
-    toastContainer: $('toastContainer'),
-    urlModal: $('urlModal'),
-    urlTitle: $('urlTitle'),
-    urlArtist: $('urlArtist'),
-    urlInput: $('urlInput'),
-    urlAdd: $('urlAdd'),
-    urlCancel: $('urlCancel'),
+    audio: $('audioPlayer'), fileInput: $('fileInput'), lrcInput: $('lrcInput'),
+    playlist: $('playlist'), playlistCount: $('playlistCount'), searchInput: $('searchInput'),
+    coverWrapper: $('coverWrapper'), coverDisc: $('coverDisc'), coverImg: $('coverImg'),
+    nowLabel: $('nowLabel'), nowTitle: $('nowTitle'), nowArtist: $('nowArtist'),
+    lyricsContainer: $('lyricsContainer'), playerCover: $('playerCover'),
+    playerSongTitle: $('playerSongTitle'), playerSongArtist: $('playerSongArtist'),
+    btnPlay: $('btnPlay'), btnPrev: $('btnPrev'), btnNext: $('btnNext'),
+    btnShuffle: $('btnShuffle'), btnRepeat: $('btnRepeat'),
+    btnShuffleBottom: $('btnShuffleBottom'), btnRepeatBottom: $('btnRepeatBottom'),
+    btnMute: $('btnMute'), btnUpload: $('btnUpload'), btnAddUrl: $('btnAddUrl'),
+    btnLoadLyrics: $('btnLoadLyrics'), progressBar: $('progressBar'),
+    progressFill: $('progressFill'), currentTime: $('currentTime'), totalTime: $('totalTime'),
+    volumeSlider: $('volumeSlider'), toastContainer: $('toastContainer'),
+    urlModal: $('urlModal'), urlTitle: $('urlTitle'), urlArtist: $('urlArtist'),
+    urlInput: $('urlInput'), urlAdd: $('urlAdd'), urlCancel: $('urlCancel'),
   };
 
-  /* ----------------------------------------------------------
-     ICONS
-     ---------------------------------------------------------- */
   const ICONS = {
     play: `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>`,
     pause: `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
@@ -790,39 +741,20 @@ input { font: inherit; }
     repeat: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
   };
 
-  /* ----------------------------------------------------------
-     UTILITIES
-     ---------------------------------------------------------- */
   function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    const div = document.createElement('div'); div.textContent = str; return div.innerHTML;
   }
 
   const formatTime = (s) => {
     if (!isFinite(s) || s < 0) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
+    const m = Math.floor(s / 60); const sec = Math.floor(s % 60);
     return `${m}:${String(sec).padStart(2, '0')}`;
   };
 
   const generateCover = (seed) => {
-    const palettes = [
-      ['#8b5cf6', '#3b82f6'], ['#ec4899', '#8b5cf6'],
-      ['#f59e0b', '#ef4444'], ['#10b981', '#06b6d4'],
-      ['#6366f1', '#ec4899'], ['#f97316', '#f43f5e'],
-    ];
+    const palettes = [['#8b5cf6', '#3b82f6'], ['#ec4899', '#8b5cf6'], ['#f59e0b', '#ef4444'], ['#10b981', '#06b6d4'], ['#6366f1', '#ec4899'], ['#f97316', '#f43f5e']];
     const p = palettes[seed % palettes.length];
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300">
-      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="${p[0]}"/><stop offset="100%" stop-color="${p[1]}"/>
-      </linearGradient></defs>
-      <rect width="300" height="300" fill="url(#g)"/>
-      <circle cx="150" cy="150" r="70" fill="rgba(0,0,0,0.25)"/>
-      <circle cx="150" cy="150" r="55" fill="rgba(0,0,0,0.15)"/>
-      <circle cx="150" cy="150" r="18" fill="rgba(255,255,255,0.35)"/>
-      <circle cx="150" cy="150" r="6" fill="rgba(0,0,0,0.4)"/>
-    </svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${p[0]}"/><stop offset="100%" stop-color="${p[1]}"/></linearGradient></defs><rect width="300" height="300" fill="url(#g)"/><circle cx="150" cy="150" r="70" fill="rgba(0,0,0,0.25)"/><circle cx="150" cy="150" r="55" fill="rgba(0,0,0,0.15)"/><circle cx="150" cy="150" r="18" fill="rgba(255,255,255,0.35)"/><circle cx="150" cy="150" r="6" fill="rgba(0,0,0,0.4)"/></svg>`;
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;
   };
 
@@ -831,147 +763,53 @@ input { font: inherit; }
     el.className = 'toast' + (type === 'error' ? ' error' : '');
     el.textContent = message;
     els.toastContainer.appendChild(el);
-    setTimeout(() => {
-      el.classList.add('fade-out');
-      setTimeout(() => el.remove(), 300);
-    }, 2600);
+    setTimeout(() => { el.classList.add('fade-out'); setTimeout(() => el.remove(), 300); }, 2600);
   };
 
   const parseFilename = (filename) => {
     const base = filename.replace(/\.[^.]+$/, '');
     const parts = base.split(' - ');
-    if (parts.length >= 2) {
-      return { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() };
-    }
+    if (parts.length >= 2) return { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() };
     return { title: base, artist: 'Unknown Artist' };
   };
 
   const getDuration = (url) => new Promise((resolve) => {
-    const temp = new Audio();
-    temp.preload = 'metadata';
+    const temp = new Audio(); temp.preload = 'metadata';
     const done = (val) => { temp.src = ''; resolve(val); };
     temp.onloadedmetadata = () => done(isFinite(temp.duration) ? temp.duration : 0);
-    temp.onerror = () => done(0);
-    setTimeout(() => done(0), 5000);
-    temp.src = url;
+    temp.onerror = () => done(0); setTimeout(() => done(0), 5000); temp.src = url;
   });
 
-  /* ----------------------------------------------------------
-     INDEXEDDB — penyimpanan permanen (per browser)
-     ---------------------------------------------------------- */
-  const DB_NAME = 'hearmeout-db';
-  const DB_VERSION = 1;
-  let db = null;
-
-  const openDB = () => new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
-      const database = e.target.result;
-      if (!database.objectStoreNames.contains('songs')) {
-        database.createObjectStore('songs', { keyPath: 'id' });
-      }
-      if (!database.objectStoreNames.contains('lyrics')) {
-        database.createObjectStore('lyrics', { keyPath: 'songId' });
-      }
-      if (!database.objectStoreNames.contains('meta')) {
-        database.createObjectStore('meta', { keyPath: 'key' });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-
-  const idbPut = (store, value) => new Promise((resolve, reject) => {
-    const req = db.transaction(store, 'readwrite').objectStore(store).put(value);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-
-  const idbGet = (store, key) => new Promise((resolve, reject) => {
-    const req = db.transaction(store, 'readonly').objectStore(store).get(key);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-
-  const idbGetAll = (store) => new Promise((resolve, reject) => {
-    const req = db.transaction(store, 'readonly').objectStore(store).getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
-
-  const idbDelete = (store, key) => new Promise((resolve, reject) => {
-    const req = db.transaction(store, 'readwrite').objectStore(store).delete(key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-
-  /* ----------------------------------------------------------
-     LRC PARSER
-     ---------------------------------------------------------- */
   const parseLRC = (text) => {
     try {
       const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((it) => ({ time: Number(it.time) || 0, text: String(it.text || '') }))
-          .filter((l) => l.text)
-          .sort((a, b) => a.time - b.time);
-      }
+      if (Array.isArray(parsed)) return parsed.map((it) => ({ time: Number(it.time) || 0, text: String(it.text || '') })).filter((l) => l.text).sort((a, b) => a.time - b.time);
     } catch (e) { /* bukan JSON */ }
-
-    const lines = text.split(/\r?\n/);
-    const result = [];
-    const timeRegex = /\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
-
+    const lines = text.split(/\r?\n/); const result = []; const timeRegex = /\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
     for (const line of lines) {
-      const cleanText = line.replace(/\[[^\]]*\]/g, '').trim();
-      if (!cleanText) continue;
+      const cleanText = line.replace(/\[[^\]]*\]/g, '').trim(); if (!cleanText) continue;
       const matches = [...line.matchAll(timeRegex)];
       for (const m of matches) {
-        const min = parseInt(m[1], 10);
-        const sec = parseInt(m[2], 10);
-        const ms = m[3] ? parseInt(m[3].padEnd(3, '0'), 10) : 0;
+        const min = parseInt(m[1], 10); const sec = parseInt(m[2], 10); const ms = m[3] ? parseInt(m[3].padEnd(3, '0'), 10) : 0;
         result.push({ time: min * 60 + sec + ms / 1000, text: cleanText });
       }
     }
     return result.sort((a, b) => a.time - b.time);
   };
 
-  /* ----------------------------------------------------------
-     RENDER: PLAYLIST
-     ---------------------------------------------------------- */
   const renderPlaylist = () => {
-    const filtered = state.filter
-      ? state.playlist.filter((s) =>
-          s.title.toLowerCase().includes(state.filter.toLowerCase()) ||
-          s.artist.toLowerCase().includes(state.filter.toLowerCase()))
-      : state.playlist;
-
+    const filtered = state.filter ? state.playlist.filter((s) => s.title.toLowerCase().includes(state.filter.toLowerCase()) || s.artist.toLowerCase().includes(state.filter.toLowerCase())) : state.playlist;
     els.playlistCount.textContent = `(${state.playlist.length} lagu)`;
-
     if (filtered.length === 0) {
-      els.playlist.innerHTML = state.playlist.length === 0
-        ? `<div class="playlist-empty">
-             <div class="playlist-empty-icon">🎵</div>
-             <h3>Playlist kosong</h3>
-             <p>Klik "Upload" untuk menambah lagu dari perangkat</p>
-           </div>`
-        : `<div class="playlist-empty">
-             <div class="playlist-empty-icon">🔍</div>
-             <h3>Tidak ada hasil</h3>
-             <p>Tidak ada lagu yang cocok dengan pencarian</p>
-           </div>`;
+      els.playlist.innerHTML = state.playlist.length === 0 ? `<div class="playlist-empty"><div class="playlist-empty-icon">🎵</div><h3>Playlist kosong</h3><p>Upload atau Tambah URL untuk memulai</p></div>` : `<div class="playlist-empty"><div class="playlist-empty-icon">🔍</div><h3>Tidak ada hasil</h3><p>Tidak ada lagu yang cocok</p></div>`;
       return;
     }
-
     els.playlist.innerHTML = filtered.map((song) => {
       const realIndex = state.playlist.indexOf(song);
       const isActive = realIndex === state.currentIndex;
       const paused = isActive && !state.isPlaying;
       return `
-        <div class="song-item ${isActive ? 'active' : ''} ${paused ? 'paused' : ''}"
-             data-index="${realIndex}" role="button" tabindex="0"
-             aria-label="Putar ${escapeHtml(song.title)}">
+        <div class="song-item ${isActive ? 'active' : ''} ${paused ? 'paused' : ''}" data-index="${realIndex}" role="button" tabindex="0">
           <div class="song-num-wrap">
             <div class="song-num">${realIndex + 1}</div>
             <div class="eq-bars"><span></span><span></span><span></span><span></span></div>
@@ -981,32 +819,20 @@ input { font: inherit; }
             <div class="song-artist">${escapeHtml(song.artist)}</div>
           </div>
           <div class="song-duration">${song.duration > 0 ? formatTime(song.duration) : '—'}</div>
-          <button class="song-delete" data-delete="${realIndex}"
-                  title="Hapus dari playlist" aria-label="Hapus lagu">✕</button>
+          <button class="song-delete" data-delete="${realIndex}" title="Hapus">✕</button>
         </div>`;
     }).join('');
   };
 
-  /* ----------------------------------------------------------
-     RENDER: NOW PLAYING
-     ---------------------------------------------------------- */
   const updateNowPlaying = (song) => {
     if (!song) {
-      els.nowLabel.textContent = 'Belum ada lagu';
-      els.nowTitle.textContent = '—';
-      els.nowArtist.textContent = 'Upload lagu untuk mulai';
-      els.playerSongTitle.textContent = 'Tidak ada lagu';
-      els.playerSongArtist.textContent = '—';
-      els.lyricsContainer.innerHTML = '<div class="lyrics-empty">Belum ada lirik untuk lagu ini</div>';
-      return;
+      els.nowLabel.textContent = 'Belum ada lagu'; els.nowTitle.textContent = '—'; els.nowArtist.textContent = 'Upload lagu untuk mulai';
+      els.playerSongTitle.textContent = 'Tidak ada lagu'; els.playerSongArtist.textContent = '—';
+      els.lyricsContainer.innerHTML = '<div class="lyrics-empty">Belum ada lirik untuk lagu ini</div>'; return;
     }
-    els.coverImg.src = song.cover;
-    els.nowLabel.textContent = 'Now Playing';
-    els.nowTitle.textContent = song.title;
-    els.nowArtist.textContent = song.artist;
-    els.playerCover.src = song.cover;
-    els.playerSongTitle.textContent = song.title;
-    els.playerSongArtist.textContent = song.artist;
+    els.coverImg.src = song.cover; els.nowLabel.textContent = 'Now Playing'; els.nowTitle.textContent = song.title;
+    els.nowArtist.textContent = song.artist; els.playerCover.src = song.cover;
+    els.playerSongTitle.textContent = song.title; els.playerSongArtist.textContent = song.artist;
     renderLyrics(song);
   };
 
@@ -1017,113 +843,61 @@ input { font: inherit; }
     els.coverDisc.classList.toggle('playing', state.isPlaying);
   };
 
-  /* ----------------------------------------------------------
-     RENDER & SYNC: LYRICS
-     ---------------------------------------------------------- */
   const renderLyrics = (song) => {
     const lyrics = state.lyrics[song.id];
     if (!lyrics || lyrics.length === 0) {
-      els.lyricsContainer.innerHTML =
-        '<div class="lyrics-empty">Belum ada lirik untuk lagu ini<br><small>Klik "Muat .lrc" untuk menambahkan</small></div>';
-      state.currentLyricIndex = -1;
-      return;
+      els.lyricsContainer.innerHTML = '<div class="lyrics-empty">Belum ada lirik<br><small>Klik "Muat .lrc" untuk menambahkan</small></div>';
+      state.currentLyricIndex = -1; return;
     }
-    els.lyricsContainer.innerHTML = lyrics.map((line, i) =>
-      `<div class="lyric-line" data-line="${i}">${escapeHtml(line.text)}</div>`
-    ).join('');
-    state.currentLyricIndex = -1;
-    updateActiveLyric(els.audio.currentTime);
+    els.lyricsContainer.innerHTML = lyrics.map((line, i) => `<div class="lyric-line" data-line="${i}">${escapeHtml(line.text)}</div>`).join('');
+    state.currentLyricIndex = -1; updateActiveLyric(els.audio.currentTime);
   };
 
   const updateActiveLyric = (currentTime) => {
-    const song = state.playlist[state.currentIndex];
-    if (!song) return;
-    const lyrics = state.lyrics[song.id];
-    if (!lyrics || lyrics.length === 0) return;
-
+    const song = state.playlist[state.currentIndex]; if (!song) return;
+    const lyrics = state.lyrics[song.id]; if (!lyrics || lyrics.length === 0) return;
     let activeIndex = -1;
-    for (let i = 0; i < lyrics.length; i++) {
-      if (lyrics[i].time <= currentTime + 0.15) activeIndex = i;
-      else break;
-    }
-
+    for (let i = 0; i < lyrics.length; i++) { if (lyrics[i].time <= currentTime + 0.15) activeIndex = i; else break; }
     if (activeIndex === state.currentLyricIndex) return;
     state.currentLyricIndex = activeIndex;
-
     const lines = els.lyricsContainer.querySelectorAll('.lyric-line');
-    lines.forEach((el, i) => {
-      el.classList.toggle('active', i === activeIndex);
-      el.classList.toggle('past', i < activeIndex);
-    });
-
+    lines.forEach((el, i) => { el.classList.toggle('active', i === activeIndex); el.classList.toggle('past', i < activeIndex); });
     if (activeIndex >= 0 && lines[activeIndex]) {
-      const line = lines[activeIndex];
-      const container = els.lyricsContainer;
-      const offset = line.offsetTop - container.clientHeight / 2 + line.clientHeight / 2;
-      container.scrollTo({ top: offset, behavior: 'smooth' });
+      const line = lines[activeIndex]; const container = els.lyricsContainer;
+      container.scrollTo({ top: line.offsetTop - container.clientHeight / 2 + line.clientHeight / 2, behavior: 'smooth' });
     }
   };
 
-  /* ----------------------------------------------------------
-     AUDIO: PLAYBACK
-     ---------------------------------------------------------- */
   const playSong = (index, autoplay = true) => {
     if (index < 0 || index >= state.playlist.length) return;
-    const song = state.playlist[index];
-    state.currentIndex = index;
-
-    els.btnPlay.classList.add('loading');
-    els.audio.src = song.url;
-    els.audio.load();
-
+    const song = state.playlist[index]; state.currentIndex = index;
+    els.btnPlay.classList.add('loading'); els.audio.src = song.url; els.audio.load();
     if (autoplay) {
       const p = els.audio.play();
-      if (p) p.catch((err) => {
-        if (err.name !== 'AbortError') {
-          toast('Gagal memutar: ' + err.message, 'error');
-          state.isPlaying = false;
-          updatePlayButton();
-        }
-      });
+      if (p) p.catch((err) => { if (err.name !== 'AbortError') { toast('Gagal memutar: ' + err.message, 'error'); state.isPlaying = false; updatePlayButton(); } });
     }
-    updateNowPlaying(song);
-    renderPlaylist();
+    updateNowPlaying(song); renderPlaylist();
   };
 
   const togglePlay = () => {
     if (!els.audio.src || state.currentIndex === -1) {
-      if (state.playlist.length > 0) playSong(0);
-      else toast('Playlist kosong. Upload lagu dulu.', 'error');
-      return;
+      if (state.playlist.length > 0) playSong(0); else toast('Playlist kosong.', 'error'); return;
     }
-    if (state.isPlaying) els.audio.pause();
-    else els.audio.play().catch(() => {});
+    if (state.isPlaying) els.audio.pause(); else els.audio.play().catch(() => {});
   };
 
   const nextSong = (fromAuto = false) => {
     if (state.playlist.length === 0) return;
-
-    if (state.repeat === 'one' && fromAuto) {
-      els.audio.currentTime = 0;
-      els.audio.play();
-      return;
-    }
-
+    if (state.repeat === 'one' && fromAuto) { els.audio.currentTime = 0; els.audio.play(); return; }
     let nextIndex;
     if (state.shuffle && state.playlist.length > 1) {
-      do {
-        nextIndex = Math.floor(Math.random() * state.playlist.length);
-      } while (nextIndex === state.currentIndex);
+      do { nextIndex = Math.floor(Math.random() * state.playlist.length); } while (nextIndex === state.currentIndex);
     } else {
       nextIndex = state.currentIndex + 1;
       if (nextIndex >= state.playlist.length) {
         if (state.repeat === 'all') nextIndex = 0;
-        else if (fromAuto) {
-          state.isPlaying = false;
-          updatePlayButton();
-          renderPlaylist();
-          return;
-        } else nextIndex = 0;
+        else if (fromAuto) { state.isPlaying = false; updatePlayButton(); renderPlaylist(); return; }
+        else nextIndex = 0;
       }
     }
     playSong(nextIndex);
@@ -1131,39 +905,20 @@ input { font: inherit; }
 
   const prevSong = () => {
     if (state.playlist.length === 0) return;
-    if (els.audio.currentTime > 3) {
-      els.audio.currentTime = 0;
-      return;
-    }
+    if (els.audio.currentTime > 3) { els.audio.currentTime = 0; return; }
     let prevIndex;
     if (state.shuffle && state.playlist.length > 1) {
-      do {
-        prevIndex = Math.floor(Math.random() * state.playlist.length);
-      } while (prevIndex === state.currentIndex);
-    } else {
-      prevIndex = state.currentIndex - 1;
-      if (prevIndex < 0) prevIndex = state.playlist.length - 1;
-    }
+      do { prevIndex = Math.floor(Math.random() * state.playlist.length); } while (prevIndex === state.currentIndex);
+    } else { prevIndex = state.currentIndex - 1; if (prevIndex < 0) prevIndex = state.playlist.length - 1; }
     playSong(prevIndex);
   };
 
-  const seekToPercent = (percent) => {
-    if (!isFinite(els.audio.duration)) return;
-    els.audio.currentTime = (percent / 100) * els.audio.duration;
-  };
+  const seekToPercent = (percent) => { if (isFinite(els.audio.duration)) els.audio.currentTime = (percent / 100) * els.audio.duration; };
 
-  /* ----------------------------------------------------------
-     FILES: UPLOAD & URL
-     ---------------------------------------------------------- */
+  // --- SUPABASE: TAMBAH LOKAL ---
   const addLocalFiles = async (files) => {
-    const audioFiles = Array.from(files).filter(
-      (f) => f.type.startsWith('audio/') || /\.(mp3|ogg|wav|m4a|flac|aac|opus)$/i.test(f.name)
-    );
-    if (audioFiles.length === 0) {
-      toast('Tidak ada file audio yang valid', 'error');
-      return;
-    }
-
+    const audioFiles = Array.from(files).filter((f) => f.type.startsWith('audio/') || /\.(mp3|ogg|wav|m4a|flac|aac|opus)$/i.test(f.name));
+    if (audioFiles.length === 0) { toast('Tidak ada file audio valid', 'error'); return; }
     let added = 0;
     for (const file of audioFiles) {
       try {
@@ -1171,247 +926,119 @@ input { font: inherit; }
         const id = ++state.songIdCounter;
         const blobUrl = URL.createObjectURL(file);
         const duration = await getDuration(blobUrl);
-        const cover = generateCover(id);
+        
+        const { error } = await supabase.from('playlist').insert({ title, artist, url: blobUrl, song_id: id });
+        if (error) throw error;
 
-        await idbPut('songs', {
-          id, title, artist, duration, cover,
-          source: 'local',
-          fileName: file.name,
-          fileBlob: file,
-        });
-        await idbPut('meta', { key: 'songIdCounter', value: state.songIdCounter });
-
-        state.playlist.push({
-          id, title, artist, duration, cover,
-          source: 'local',
-          url: blobUrl,
-        });
+        state.playlist.push({ id, title, artist, duration, cover: generateCover(id), source: 'local', url: blobUrl });
         added++;
-      } catch (err) {
-        console.error(err);
-        toast(`Gagal memuat ${file.name}`, 'error');
-      }
+      } catch (err) { console.error(err); toast(`Gagal simpan ${file.name}`, 'error'); }
     }
-
     renderPlaylist();
-    if (added > 0) toast(`${added} lagu ditambahkan & tersimpan`);
-    if (state.currentIndex === -1 && state.playlist.length > 0) {
-      updateNowPlaying(state.playlist[0]);
-    }
+    if (added > 0) toast(`${added} lagu ditambahkan ke Supabase`);
+    if (state.currentIndex === -1 && state.playlist.length > 0) updateNowPlaying(state.playlist[0]);
   };
 
-  const addFromUrl = () => {
+  // --- SUPABASE: TAMBAH URL ---
+  const addFromUrl = async () => {
     const url = els.urlInput.value.trim();
     if (!url) { toast('URL tidak boleh kosong', 'error'); return; }
-
     const fallback = parseFilename(url.split('/').pop() || 'Untitled');
     const title = els.urlTitle.value.trim() || fallback.title;
     const artist = els.urlArtist.value.trim() || 'Unknown Artist';
     const id = ++state.songIdCounter;
 
-    const song = { id, title, artist, url, duration: 0,
-                   cover: generateCover(id), source: 'url' };
+    const { error } = await supabase.from('playlist').insert({ title, artist, url, song_id: id });
+    if (error) { toast('Gagal menyimpan ke database', 'error'); return; }
+
+    const song = { id, title, artist, url, duration: 0, cover: generateCover(id), source: 'url' };
     state.playlist.push(song);
 
-    idbPut('songs', song).catch((e) => console.error(e));
-    idbPut('meta', { key: 'songIdCounter', value: state.songIdCounter })
-      .catch((e) => console.error(e));
+    getDuration(url).then((dur) => { song.duration = dur; renderPlaylist(); });
 
-    getDuration(url).then((dur) => {
-      song.duration = dur;
-      renderPlaylist();
-      idbPut('songs', song).catch(() => {});
-    });
-
-    renderPlaylist();
-    closeUrlModal();
-    toast(`"${title}" ditambahkan & tersimpan`);
+    renderPlaylist(); closeUrlModal(); toast(`"${title}" ditambahkan`);
   };
 
-  const openUrlModal = () => {
-    els.urlTitle.value = '';
-    els.urlArtist.value = '';
-    els.urlInput.value = '';
-    els.urlModal.classList.add('show');
-    setTimeout(() => els.urlInput.focus(), 50);
-  };
+  const openUrlModal = () => { els.urlTitle.value = ''; els.urlArtist.value = ''; els.urlInput.value = ''; els.urlModal.classList.add('show'); setTimeout(() => els.urlInput.focus(), 50); };
   const closeUrlModal = () => els.urlModal.classList.remove('show');
 
-  /* ----------------------------------------------------------
-     DELETE SONG
-     ---------------------------------------------------------- */
-  const deleteSong = (index) => {
+  // --- SUPABASE: HAPUS ---
+  const deleteSong = async (index) => {
     if (index < 0 || index >= state.playlist.length) return;
     const song = state.playlist[index];
     if (song.source === 'local' && song.url) URL.revokeObjectURL(song.url);
 
-    idbDelete('songs', song.id).catch(() => {});
-    idbDelete('lyrics', song.id).catch(() => {});
+    await supabase.from('playlist').delete().eq('song_id', song.id);
     delete state.lyrics[song.id];
 
     if (index === state.currentIndex) {
-      els.audio.pause();
-      els.audio.removeAttribute('src');
-      els.audio.load();
-      state.isPlaying = false;
-      state.currentIndex = -1;
-      updatePlayButton();
-      updateNowPlaying(null);
-    } else if (index < state.currentIndex) {
-      state.currentIndex--;
-    }
+      els.audio.pause(); els.audio.removeAttribute('src'); els.audio.load();
+      state.isPlaying = false; state.currentIndex = -1; updatePlayButton(); updateNowPlaying(null);
+    } else if (index < state.currentIndex) state.currentIndex--;
 
-    state.playlist.splice(index, 1);
-    renderPlaylist();
+    state.playlist.splice(index, 1); renderPlaylist();
   };
 
-  /* ----------------------------------------------------------
-     VOLUME
-     ---------------------------------------------------------- */
   const updateMuteIcon = () => {
-    if (els.audio.muted || els.audio.volume === 0) {
-      els.btnMute.innerHTML = ICONS.volumeMute;
-    } else if (els.audio.volume < 0.5) {
-      els.btnMute.innerHTML = ICONS.volumeLow;
-    } else {
-      els.btnMute.innerHTML = ICONS.volumeHigh;
-    }
+    if (els.audio.muted || els.audio.volume === 0) els.btnMute.innerHTML = ICONS.volumeMute;
+    else if (els.audio.volume < 0.5) els.btnMute.innerHTML = ICONS.volumeLow;
+    else els.btnMute.innerHTML = ICONS.volumeHigh;
   };
+  const toggleMute = () => { els.audio.muted = !els.audio.muted; updateMuteIcon(); };
 
-  const toggleMute = () => {
-    els.audio.muted = !els.audio.muted;
-    updateMuteIcon();
-  };
-
-  /* ----------------------------------------------------------
-     SHUFFLE & REPEAT
-     ---------------------------------------------------------- */
-  const toggleShuffle = () => {
-    state.shuffle = !state.shuffle;
-    els.btnShuffle.classList.toggle('active', state.shuffle);
-    els.btnShuffleBottom.classList.toggle('active', state.shuffle);
-    toast(state.shuffle ? 'Shuffle: ON' : 'Shuffle: OFF');
-  };
-
+  const toggleShuffle = () => { state.shuffle = !state.shuffle; els.btnShuffle.classList.toggle('active', state.shuffle); els.btnShuffleBottom.classList.toggle('active', state.shuffle); toast(state.shuffle ? 'Shuffle: ON' : 'Shuffle: OFF'); };
   const toggleRepeat = () => {
-    const modes = ['off', 'all', 'one'];
-    state.repeat = modes[(modes.indexOf(state.repeat) + 1) % 3];
-    const active = state.repeat !== 'off';
-    els.btnRepeat.classList.toggle('active', active);
-    els.btnRepeatBottom.classList.toggle('active', active);
-    const icon = state.repeat === 'one' ? ICONS.repeatOne : ICONS.repeat;
-    els.btnRepeat.innerHTML = icon;
-    els.btnRepeatBottom.innerHTML = icon;
-    els.btnRepeat.title = `Repeat: ${state.repeat}`;
-    els.btnRepeatBottom.title = `Repeat: ${state.repeat}`;
+    const modes = ['off', 'all', 'one']; state.repeat = modes[(modes.indexOf(state.repeat) + 1) % 3];
+    const active = state.repeat !== 'off'; els.btnRepeat.classList.toggle('active', active); els.btnRepeatBottom.classList.toggle('active', active);
+    const icon = state.repeat === 'one' ? ICONS.repeatOne : ICONS.repeat; els.btnRepeat.innerHTML = icon; els.btnRepeatBottom.innerHTML = icon;
     toast(`Repeat: ${state.repeat.toUpperCase()}`);
   };
 
-  /* ----------------------------------------------------------
-     PROGRESS BAR
-     ---------------------------------------------------------- */
   let isDraggingProgress = false;
-
   const updateProgressFromPointer = (e) => {
     const rect = els.progressBar.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-    const percent = (x / rect.width) * 100;
-    els.progressFill.style.width = percent + '%';
-    if (isFinite(els.audio.duration)) {
-      els.currentTime.textContent = formatTime((percent / 100) * els.audio.duration);
-    }
+    const percent = (x / rect.width) * 100; els.progressFill.style.width = percent + '%';
+    if (isFinite(els.audio.duration)) els.currentTime.textContent = formatTime((percent / 100) * els.audio.duration);
     return percent;
   };
 
-  /* ----------------------------------------------------------
-     AUDIO EVENT LISTENERS
-     ---------------------------------------------------------- */
-  els.audio.addEventListener('play', () => {
-    state.isPlaying = true;
-    updatePlayButton();
-    els.btnPlay.classList.remove('loading');
-    renderPlaylist();
-  });
-
-  els.audio.addEventListener('pause', () => {
-    state.isPlaying = false;
-    updatePlayButton();
-    renderPlaylist();
-  });
-
+  els.audio.addEventListener('play', () => { state.isPlaying = true; updatePlayButton(); els.btnPlay.classList.remove('loading'); renderPlaylist(); });
+  els.audio.addEventListener('pause', () => { state.isPlaying = false; updatePlayButton(); renderPlaylist(); });
   els.audio.addEventListener('loadedmetadata', () => {
     els.totalTime.textContent = formatTime(els.audio.duration);
     if (state.currentIndex >= 0) {
       const song = state.playlist[state.currentIndex];
-      if (song && (!song.duration || song.duration === 0)) {
-        song.duration = els.audio.duration || 0;
-        renderPlaylist();
-        idbPut('songs', { ...song, url: undefined }).catch(() => {});
-      }
+      if (song && (!song.duration || song.duration === 0)) { song.duration = els.audio.duration || 0; renderPlaylist(); }
     }
   });
-
   els.audio.addEventListener('timeupdate', () => {
-    if (isDraggingProgress) return;
-    if (!isFinite(els.audio.duration)) return;
+    if (isDraggingProgress) return; if (!isFinite(els.audio.duration)) return;
     const percent = (els.audio.currentTime / els.audio.duration) * 100;
-    els.progressFill.style.width = percent + '%';
-    els.currentTime.textContent = formatTime(els.audio.currentTime);
-    els.progressBar.setAttribute('aria-valuenow', Math.round(percent));
-    updateActiveLyric(els.audio.currentTime);
+    els.progressFill.style.width = percent + '%'; els.currentTime.textContent = formatTime(els.audio.currentTime);
+    els.progressBar.setAttribute('aria-valuenow', Math.round(percent)); updateActiveLyric(els.audio.currentTime);
   });
-
   els.audio.addEventListener('ended', () => nextSong(true));
-
-  els.audio.addEventListener('error', () => {
-    if (!els.audio.src) return;
-    toast('Gagal memutar audio. Format mungkin tidak didukung.', 'error');
-    els.btnPlay.classList.remove('loading');
-  });
-
+  els.audio.addEventListener('error', () => { if (!els.audio.src) return; toast('Gagal memutar audio.', 'error'); els.btnPlay.classList.remove('loading'); });
   els.audio.addEventListener('waiting', () => els.btnPlay.classList.add('loading'));
   els.audio.addEventListener('canplay', () => els.btnPlay.classList.remove('loading'));
 
-  /* ----------------------------------------------------------
-     UI EVENT LISTENERS
-     ---------------------------------------------------------- */
   els.btnUpload.addEventListener('click', () => els.fileInput.click());
-  els.fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) addLocalFiles(e.target.files);
-    e.target.value = '';
-  });
-
+  els.fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) addLocalFiles(e.target.files); e.target.value = ''; });
   els.btnAddUrl.addEventListener('click', openUrlModal);
   els.urlAdd.addEventListener('click', addFromUrl);
   els.urlCancel.addEventListener('click', closeUrlModal);
-  els.urlModal.addEventListener('click', (e) => {
-    if (e.target === els.urlModal) closeUrlModal();
-  });
-  [els.urlTitle, els.urlArtist, els.urlInput].forEach((el) => {
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') addFromUrl(); });
-  });
+  els.urlModal.addEventListener('click', (e) => { if (e.target === els.urlModal) closeUrlModal(); });
+  [els.urlTitle, els.urlArtist, els.urlInput].forEach((el) => { el.addEventListener('keydown', (e) => { if (e.key === 'Enter') addFromUrl(); }); });
 
   els.playlist.addEventListener('click', (e) => {
     const delBtn = e.target.closest('.song-delete');
-    if (delBtn) {
-      e.stopPropagation();
-      deleteSong(parseInt(delBtn.dataset.delete, 10));
-      return;
-    }
+    if (delBtn) { e.stopPropagation(); deleteSong(parseInt(delBtn.dataset.delete, 10)); return; }
     const item = e.target.closest('.song-item');
     if (item) playSong(parseInt(item.dataset.index, 10));
   });
-  els.playlist.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target.classList.contains('song-item')) {
-      playSong(parseInt(e.target.dataset.index, 10));
-    }
-  });
 
-  els.searchInput.addEventListener('input', (e) => {
-    state.filter = e.target.value.trim();
-    renderPlaylist();
-  });
-
+  els.searchInput.addEventListener('input', (e) => { state.filter = e.target.value.trim(); renderPlaylist(); });
   els.btnPlay.addEventListener('click', togglePlay);
   els.btnPrev.addEventListener('click', prevSong);
   els.btnNext.addEventListener('click', () => nextSong(false));
@@ -1419,168 +1046,66 @@ input { font: inherit; }
   els.btnRepeat.addEventListener('click', toggleRepeat);
   els.btnShuffleBottom.addEventListener('click', toggleShuffle);
   els.btnRepeatBottom.addEventListener('click', toggleRepeat);
-  els.coverWrapper.addEventListener('click', () => {
-    if (state.currentIndex !== -1) togglePlay();
-  });
+  els.coverWrapper.addEventListener('click', () => { if (state.currentIndex !== -1) togglePlay(); });
 
-  els.progressBar.addEventListener('pointerdown', (e) => {
-    isDraggingProgress = true;
-    updateProgressFromPointer(e);
-  });
-  window.addEventListener('pointermove', (e) => {
-    if (isDraggingProgress) updateProgressFromPointer(e);
-  });
+  els.progressBar.addEventListener('pointerdown', (e) => { isDraggingProgress = true; updateProgressFromPointer(e); });
+  window.addEventListener('pointermove', (e) => { if (isDraggingProgress) updateProgressFromPointer(e); });
   window.addEventListener('pointerup', (e) => {
-    if (isDraggingProgress) {
-      const percent = updateProgressFromPointer(e);
-      seekToPercent(percent);
-      isDraggingProgress = false;
-    }
+    if (isDraggingProgress) { const percent = updateProgressFromPointer(e); seekToPercent(percent); isDraggingProgress = false; }
   });
 
   els.volumeSlider.addEventListener('input', (e) => {
-    const vol = parseInt(e.target.value, 10) / 100;
-    state.volume = vol;
-    els.audio.volume = vol;
-    els.audio.muted = false;
-    updateMuteIcon();
+    const vol = parseInt(e.target.value, 10) / 100; state.volume = vol; els.audio.volume = vol; els.audio.muted = false; updateMuteIcon();
   });
   els.btnMute.addEventListener('click', toggleMute);
 
   els.btnLoadLyrics.addEventListener('click', () => {
-    if (state.currentIndex === -1) {
-      toast('Pilih lagu dulu sebelum memuat lirik', 'error');
-      return;
-    }
+    if (state.currentIndex === -1) { toast('Pilih lagu dulu', 'error'); return; }
     els.lrcInput.click();
   });
   els.lrcInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     try {
-      const text = await file.text();
-      const lyrics = parseLRC(text);
-      if (lyrics.length === 0) {
-        toast('Format lirik tidak valid (butuh .lrc atau .json)', 'error');
-        return;
-      }
+      const text = await file.text(); const lyrics = parseLRC(text);
+      if (lyrics.length === 0) { toast('Format lirik tidak valid', 'error'); return; }
       const song = state.playlist[state.currentIndex];
-      state.lyrics[song.id] = lyrics;
-      await idbPut('lyrics', { songId: song.id, lines: lyrics });
-      renderLyrics(song);
-      toast(`Lirik dimuat & tersimpan (${lyrics.length} baris)`);
-    } catch (err) {
-      console.error(err);
-      toast('Gagal membaca file lirik', 'error');
-    }
+      state.lyrics[song.id] = lyrics; renderLyrics(song); toast(`Lirik dimuat`);
+    } catch (err) { toast('Gagal baca lirik', 'error'); }
     e.target.value = '';
   });
 
-  document.querySelectorAll('.nav-item').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      if (btn.dataset.view === 'search') els.searchInput.focus();
-      if (btn.dataset.view === 'lyrics') {
-        els.lyricsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    });
-  });
-
   document.addEventListener('keydown', (e) => {
-    const tag = document.activeElement.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const tag = document.activeElement.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     switch (e.code) {
       case 'Space': e.preventDefault(); togglePlay(); break;
-      case 'ArrowLeft':
-        e.preventDefault();
-        if (els.audio.duration) els.audio.currentTime = Math.max(0, els.audio.currentTime - 5);
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        if (els.audio.duration) els.audio.currentTime = Math.min(els.audio.duration, els.audio.currentTime + 5);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        els.audio.volume = Math.min(1, els.audio.volume + 0.05);
-        state.volume = els.audio.volume;
-        els.volumeSlider.value = Math.round(state.volume * 100);
-        updateMuteIcon();
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        els.audio.volume = Math.max(0, els.audio.volume - 0.05);
-        state.volume = els.audio.volume;
-        els.volumeSlider.value = Math.round(state.volume * 100);
-        updateMuteIcon();
-        break;
-      case 'KeyM': toggleMute(); break;
-      case 'KeyN': nextSong(false); break;
-      case 'KeyP': prevSong(); break;
-      case 'KeyS': toggleShuffle(); break;
-      case 'KeyR': toggleRepeat(); break;
+      case 'ArrowLeft': e.preventDefault(); if (els.audio.duration) els.audio.currentTime = Math.max(0, els.audio.currentTime - 5); break;
+      case 'ArrowRight': e.preventDefault(); if (els.audio.duration) els.audio.currentTime = Math.min(els.audio.duration, els.audio.currentTime + 5); break;
+      case 'ArrowUp': e.preventDefault(); els.audio.volume = Math.min(1, els.audio.volume + 0.05); state.volume = els.audio.volume; els.volumeSlider.value = Math.round(state.volume * 100); updateMuteIcon(); break;
+      case 'ArrowDown': e.preventDefault(); els.audio.volume = Math.max(0, els.audio.volume - 0.05); state.volume = els.audio.volume; els.volumeSlider.value = Math.round(state.volume * 100); updateMuteIcon(); break;
+      case 'KeyM': toggleMute(); break; case 'KeyN': nextSong(false); break; case 'KeyP': prevSong(); break; case 'KeyS': toggleShuffle(); break; case 'KeyR': toggleRepeat(); break;
     }
   });
 
-  window.addEventListener('beforeunload', () => {
-    state.playlist.forEach((s) => {
-      if (s.source === 'local' && s.url) URL.revokeObjectURL(s.url);
-    });
-  });
-
-  /* ----------------------------------------------------------
-     INIT
-     ---------------------------------------------------------- */
+  // --- INIT SUPABASE ---
   const init = async () => {
-    els.audio.volume = state.volume;
-    updateMuteIcon();
-    updatePlayButton();
-    renderPlaylist();
-    updateNowPlaying(null);
-
+    els.audio.volume = state.volume; updateMuteIcon(); updatePlayButton(); renderPlaylist(); updateNowPlaying(null);
     try {
-      db = await openDB();
-
-      const counterRec = await idbGet('meta', 'songIdCounter');
-      if (counterRec) state.songIdCounter = counterRec.value;
-
-      const savedSongs = await idbGetAll('songs');
-      savedSongs.sort((a, b) => a.id - b.id);
+      // Ambil data dari Supabase
+      const { data: savedSongs, error } = await supabase.from('playlist').select('*').order('song_id', { ascending: true });
+      if (error) throw error;
 
       for (const s of savedSongs) {
-        let url;
-        if (s.source === 'local' && s.fileBlob) {
-          url = URL.createObjectURL(s.fileBlob);
-        } else if (s.source === 'url') {
-          url = s.url;
-        } else {
-          continue;
-        }
+        let url = s.url;
+        if (!url) continue;
+
         state.playlist.push({
-          id: s.id,
-          title: s.title,
-          artist: s.artist,
-          duration: s.duration || 0,
-          cover: s.cover || generateCover(s.id),
-          source: s.source,
-          url,
+          id: s.song_id, title: s.title, artist: s.artist, duration: 0,
+          cover: generateCover(s.song_id), source: 'url', url: url
         });
       }
-
-      const savedLyrics = await idbGetAll('lyrics');
-      for (const ly of savedLyrics) {
-        state.lyrics[ly.songId] = ly.lines;
-      }
-
       renderPlaylist();
-      if (state.playlist.length > 0) {
-        updateNowPlaying(state.playlist[0]);
-        toast(`${state.playlist.length} lagu dipulihkan`);
-      }
-    } catch (err) {
-      console.error('Gagal memuat IndexedDB:', err);
-      toast('Gagal memuat data tersimpan', 'error');
-    }
+      if (state.playlist.length > 0) { updateNowPlaying(state.playlist[0]); toast(`${state.playlist.length} lagu dimuat dari Supabase`); }
+    } catch (err) { console.error('Gagal memuat Supabase:', err); toast('Gagal konek ke database', 'error'); }
   };
 
   init();
