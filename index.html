@@ -690,7 +690,7 @@ input { font: inherit; }
   'use strict';
 
   // ==========================================
-  // KONFIGURASI SUPABASE (SUDAH DIPERBAIKI)
+  // KONFIGURASI SUPABASE
   // ==========================================
   const SUPABASE_URL = 'https://izesffqwlhupujwthbua.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_J56orKubtN8-iXaPOYwXmA_1Cwojer4';
@@ -1059,18 +1059,36 @@ input { font: inherit; }
   });
   els.btnMute.addEventListener('click', toggleMute);
 
+  // --- SUPABASE: MUAT LIRIK & SIMPAN KE DB ---
   els.btnLoadLyrics.addEventListener('click', () => {
     if (state.currentIndex === -1) { toast('Pilih lagu dulu', 'error'); return; }
     els.lrcInput.click();
   });
+  
   els.lrcInput.addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
     try {
-      const text = await file.text(); const lyrics = parseLRC(text);
+      const text = await file.text(); 
+      const lyrics = parseLRC(text);
       if (lyrics.length === 0) { toast('Format lirik tidak valid', 'error'); return; }
+      
       const song = state.playlist[state.currentIndex];
-      state.lyrics[song.id] = lyrics; renderLyrics(song); toast(`Lirik dimuat`);
-    } catch (err) { toast('Gagal baca lirik', 'error'); }
+      state.lyrics[song.id] = lyrics; 
+      renderLyrics(song); 
+      
+      // Simpan ke Supabase
+      const { error } = await supabase.from('playlist').update({ lyrics: lyrics }).eq('song_id', song.id);
+      
+      if (error) {
+        console.error(error);
+        toast('Lirik tampil, tapi gagal simpan ke database', 'error');
+      } else {
+        toast('Lirik berhasil disimpan permanen!');
+      }
+    } catch (err) { 
+      console.error(err);
+      toast('Gagal baca lirik', 'error'); 
+    }
     e.target.value = '';
   });
 
@@ -1090,7 +1108,7 @@ input { font: inherit; }
   const init = async () => {
     els.audio.volume = state.volume; updateMuteIcon(); updatePlayButton(); renderPlaylist(); updateNowPlaying(null);
     try {
-      // Ambil data dari Supabase
+      // Ambil data dari Supabase (termasuk lirik)
       const { data: savedSongs, error } = await supabase.from('playlist').select('*').order('song_id', { ascending: true });
       if (error) throw error;
 
@@ -1102,6 +1120,11 @@ input { font: inherit; }
           id: s.song_id, title: s.title, artist: s.artist, duration: 0,
           cover: generateCover(s.song_id), source: 'url', url: url
         });
+
+        // Muat lirik dari database jika ada
+        if (s.lyrics) {
+          state.lyrics[s.song_id] = s.lyrics;
+        }
       }
       renderPlaylist();
       if (state.playlist.length > 0) { updateNowPlaying(state.playlist[0]); toast(`${state.playlist.length} lagu dimuat dari Supabase`); }
